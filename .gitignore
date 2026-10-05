@@ -1,0 +1,31 @@
+# Secrets — never commit
+secrets.env
+.env
+*.token
+
+# Stimuli (large / possibly copyrighted) — host separately
+media/
+*.mp4
+*.webm
+*.mov
+
+# Participant data
+data/
+*.jzip
+
+# Tooling
+bin/
+node_modules/
+__pycache__/
+.venv/
+
+# Test outputs
+tests/out/
+prolific/generated/
+
+# QC outputs (contain Prolific IDs)
+qc/out/
+
+# Live study link (written by scripts/deploy_jatos.py --link)
+prolific/jatos_link.txt
+.claude/
