@@ -28,4 +28,5 @@ qc/out/
 
 # Live study link (written by scripts/deploy_jatos.py --link)
 prolific/jatos_link.txt
-.claude/
+.claude/*
+!.claude/settings.json
