@@ -47,6 +47,23 @@ Put a video in `media/` (not included), set `localVideoUrl` (local) and `videoUr
 `python tests/e2e_local.py --dim affect2d` (needs Playwright). See [docs/operations.md](docs/operations.md) for
 deployment to JATOS and Prolific; secrets go in a git-ignored `secrets.env` (template: `secrets.env.example`).
 
+### 2D feedback: Flubber or grid
+
+The 2D film rating now starts with the Affect Tracker Flubber shape. Press **F**
+for Flubber or **G** for the original grid while rating. Both views use the same
+valence and arousal coordinates; switching changes only the visual feedback.
+The 2D target-tracking and quadrant practice retain the grid. Set
+`feedbackMode` to `"grid"` in `task/js/config.js` to change the initial view,
+or pass `?feedback=grid` / `?feedback=flubber` in the study URL. The selection
+survives a reload. The initial and final view are saved with the film trial;
+each switch is saved as a timed `feedback_switch` event. The raw rating sample
+columns are unchanged.
+
+The shape and six affect mappings are copied from Affect Tracker Research under
+the BSD-3-Clause license in `task/js/flubber/LICENSE`. Check the display and
+instructions for your study before recruiting participants; this fork has not
+been validated as equivalent to the original grid condition.
+
 ## Adapting it to your study
 
 In this version the example study is built in. To run your own, change `task/js/texts.js` (information sheet,
@@ -56,4 +73,5 @@ consent, instructions, questions), `task/js/config.js` (video, timing, completio
 
 ## Licence
 
-Code: MIT (see `LICENSE`). The example film is a third-party video and is not included.
+Code: MIT (see `LICENSE`), except the Flubber module under BSD-3-Clause (see
+`task/js/flubber/LICENSE`). The example film is a third-party video and is not included.

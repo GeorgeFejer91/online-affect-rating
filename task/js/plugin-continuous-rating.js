@@ -39,7 +39,7 @@ var jsPsychContinuousRating = (function (jspsych) {
 
   const info = {
     name: "continuous-rating",
-    version: "0.4.0",
+    version: "0.5.0",
     parameters: {
       /** Video to play. If null, runs in practice mode (needs practice_keyframes). */
       video_url: { type: PT.STRING, default: null },
@@ -55,6 +55,9 @@ var jsPsychContinuousRating = (function (jspsych) {
       input_mode: { type: PT.STRING, default: "joystick" },
       /** 1 = single scale, 2 = 2D grid (forces joystick). Practice keyframes then are [t, x, y]. */
       axes: { type: PT.INT, default: 1 },
+      /** Film-only 2D feedback; ratings remain valence/arousal in either view. */
+      feedback_mode: { type: PT.STRING, default: "grid" },
+      on_feedback_change: { type: PT.FUNCTION, default: null },
       x_low_label: { type: PT.STRING, default: "" },
       x_high_label: { type: PT.STRING, default: "" },
       start_value_x: { type: PT.FLOAT, default: 50 },
@@ -89,6 +92,8 @@ var jsPsychContinuousRating = (function (jspsych) {
       mode: { type: PT.STRING },
       input_mode: { type: PT.STRING },
       axes: { type: PT.INT },
+      feedback_initial: { type: PT.STRING },
+      feedback_final: { type: PT.STRING },
       joystick_px_full_scale: { type: PT.FLOAT },
       start_time: { type: PT.FLOAT },
       initial_value: { type: PT.FLOAT },
@@ -140,6 +145,15 @@ var jsPsychContinuousRating = (function (jspsych) {
       const practiceDuration = isVideo ? null : kf[kf.length - 1][0];
       const bipolar = !!trial.mid_label;
       const pxFullScale = Math.round(screen.height * trial.joystick_full_scale_frac);
+      let feedbackMode = isVideo && is2D ? trial.feedback_mode : "grid";
+      if (isVideo && is2D && !["grid", "flubber"].includes(feedbackMode)) {
+        throw new Error(`continuous-rating: unsupported feedback mode ${feedbackMode}`);
+      }
+      if (feedbackMode === "flubber" && typeof window.createFlubberFeedback !== "function") {
+        display_element.textContent = "Flubber feedback could not load. Please reload the study page.";
+        throw new Error("continuous-rating: Flubber module is unavailable");
+      }
+      const feedbackInitial = feedbackMode;
 
       display_element.innerHTML = `
         <div class="cr-wrap ${isJoy ? "cr-joy" : "cr-sl"}">
@@ -167,6 +181,11 @@ var jsPsychContinuousRating = (function (jspsych) {
                      <div class="cr-grid-dot"></div>
                    </div>
                  </div>
+                 ${isVideo ? `<svg class="cr-flubber" viewBox="-1.62 -1.62 3.24 3.24" aria-hidden="true" hidden>
+                   <path class="cr-flubber-halo"></path>
+                   <path class="cr-flubber-shape"></path>
+                   <path class="cr-flubber-outline"></path>
+                 </svg>` : ""}
                  <div class="cr-banner" hidden></div>`
               : isJoy
               ? `<div class="cr-bar" hidden>
@@ -215,6 +234,9 @@ var jsPsychContinuousRating = (function (jspsych) {
       const overlayMsg = $(".cr-overlay-msg");
       const overlayBtn = $(".cr-overlay-btn");
       const bar = is2D ? $(".cr-grid") : $(".cr-bar");
+      const flubberSvg = $(".cr-flubber");
+      const flubber = flubberSvg && typeof window.createFlubberFeedback === "function"
+        ? window.createFlubberFeedback(flubberSvg) : null;
       const banner = $(".cr-banner");
       const target = is2D ? $(".cr-grid-target") : isJoy ? $(".cr-bar-target") : $(".cr-target");
 
@@ -286,6 +308,7 @@ var jsPsychContinuousRating = (function (jspsych) {
           const dot = $(".cr-grid-dot");
           dot.style.left = pct(valX);
           dot.style.bottom = pct(val);
+          if (flubber) flubber.setRating(valX, val);
           return;
         }
         const origin = bipolar ? 50 : 0;
@@ -325,6 +348,14 @@ var jsPsychContinuousRating = (function (jspsych) {
           bar.style.left = `${m.right - s.left - size - 90}px`;
           bar.style.top = `${m.bottom - s.top - size - 34}px`;
           bar.hidden = false;
+          if (flubberSvg) {
+            flubberSvg.style.width = `${size}px`;
+            flubberSvg.style.height = `${size}px`;
+            flubberSvg.style.left = bar.style.left;
+            flubberSvg.style.top = bar.style.top;
+            flubberSvg.toggleAttribute("hidden", feedbackMode !== "flubber");
+            bar.hidden = feedbackMode !== "grid";
+          }
           return;
         }
         // Small fixed bar in the lower-right corner (same region as the 2D grid), labels to its left.
@@ -360,6 +391,26 @@ var jsPsychContinuousRating = (function (jspsych) {
       };
       const onKey = (ev) => {
         if (!ev.isTrusted) stats.n_untrusted_events++;
+        if (isVideo && is2D && (phase === "running" || phase === "arming") &&
+            (ev.code === "KeyF" || ev.code === "KeyG") && !ev.repeat) {
+          ev.preventDefault();
+          const next = ev.code === "KeyF" ? "flubber" : "grid";
+          if (next !== feedbackMode) {
+            if (next === "flubber" && !flubber) {
+              logEvent("feedback_unavailable", { mode: next });
+              return;
+            }
+            feedbackMode = next;
+            placeBar();
+            if (flubber) {
+              if (feedbackMode === "flubber" && running) flubber.start();
+              else flubber.stop();
+            }
+            logEvent("feedback_switch", { mode: feedbackMode });
+            if (typeof trial.on_feedback_change === "function") trial.on_feedback_change(feedbackMode);
+          }
+          return;
+        }
         if (phase === "arming" && ev.code === "Space") {
           ev.preventDefault();
           startRun();
@@ -423,6 +474,7 @@ var jsPsychContinuousRating = (function (jspsych) {
       // ---- stimulus control ------------------------------------------------
       const play = () => {
         running = true;
+        if (flubber && feedbackMode === "flubber") flubber.start();
         if (isVideo) {
           video.play().catch((err) => {
             running = false;
@@ -439,6 +491,7 @@ var jsPsychContinuousRating = (function (jspsych) {
           practiceLastTick = null;
         }
         running = false;
+        if (flubber) flubber.stop();
         if (isVideo) video.pause();
       };
 
@@ -637,6 +690,7 @@ var jsPsychContinuousRating = (function (jspsych) {
         pause();
         clearInterval(sampler);
         clearInterval(chunker);
+        if (flubber) flubber.stop();
         if (interruptStart !== null) stats.interrupted_ms += performance.now() - interruptStart;
         if (stallStart !== null) stats.stalled_ms += performance.now() - stallStart;
         logEvent("end");
@@ -688,6 +742,7 @@ var jsPsychContinuousRating = (function (jspsych) {
             mode: isVideo ? "video" : "practice",
             input_mode: isJoy ? "joystick" : "slider",
             axes: is2D ? 2 : 1,
+            ...(is2D && isVideo ? { feedback_initial: feedbackInitial, feedback_final: feedbackMode } : {}),
             joystick_px_full_scale: isJoy ? pxFullScale : null,
             start_time: trial.start_time,
             initial_value: initialValue,

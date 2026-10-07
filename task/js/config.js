@@ -22,6 +22,8 @@ var CONFIG = {
 
   /** "joystick" (pointer-locked mouse, overlay inside the film frame) or "slider" (1D only). URL ?input= overrides. */
   inputMode: "joystick",
+  /** Initial 2D film feedback: "flubber" or "grid". Participants can switch with F/G. */
+  feedbackMode: "flubber",
   /** Joystick: mouse travel for the full scale, as a fraction of screen height. */
   joystickFullScaleFrac: 0.6,
   /** After a reload, resume the film this many seconds before the last saved position. */

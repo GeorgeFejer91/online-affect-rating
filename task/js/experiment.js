@@ -253,7 +253,9 @@
     const inputMode = session.input || (["joystick", "slider"].includes(params.input) ? params.input : cfg.inputMode);
     const is2D = dim.axes === 2;
     const isJoy = inputMode === "joystick" || is2D;
-    setSession({ dim: dimKey, input: inputMode });
+    const requestedFeedback = session.feedback || params.feedback || cfg.feedbackMode;
+    const feedbackMode = ["grid", "flubber"].includes(requestedFeedback) ? requestedFeedback : "flubber";
+    setSession({ dim: dimKey, input: inputMode, ...(is2D ? { feedback: feedbackMode } : {}) });
 
     const videoUrl = params.video || (onJatos ? cfg.videoUrl : cfg.localVideoUrl);
     const resumeFilm = !!session.practice_done && !session.film_done;
@@ -301,6 +303,7 @@
       study: dim.study,
       dimension_assigned_by: params.dim === dimKey ? "url" : "random",
       input_mode: inputMode,
+      ...(is2D ? { feedback_mode: feedbackMode } : {}),
     };
     jsPsych.data.addProperties(ids);
     appendLine({
@@ -309,7 +312,7 @@
       ...ids,
       user_agent: navigator.userAgent,
       screen: [screen.width, screen.height],
-      config_version: "0.5.0",
+      config_version: "0.6.0",
       n_loads: session.n_loads,
       resumed_film_from: resumeFilm ? startTime : null,
       skipped_to_questions: skipToQuestions,
@@ -324,6 +327,7 @@
       high_label: dim.high,
       input_mode: is2D ? "joystick" : inputMode,
       axes: is2D ? 2 : 1,
+      ...(is2D ? { feedback_mode: feedbackMode } : {}),
       x_low_label: dim.xLow || "",
       x_high_label: dim.xHigh || "",
       start_value_x: dim.startX ?? 50,
@@ -503,7 +507,8 @@
           <p>The film cannot be paused or skipped. If you press Esc, leave full-screen mode or switch tabs,
           the film pauses until you come back.</p>
           <p>First, a 40-second practice: an orange marker will move around the square and your job is to
-          keep the white dot on it.</p></div>`
+          keep the white dot on it. During the film, press <b>F</b> for Flubber or <b>G</b> for the grid.
+          Both views show the same left–right and down–up rating.</p></div>`
           : isJoy
           ? `<div class="text-page"><h2>How to rate</h2>
           <p>During the film the mouse pointer is hidden. <b>Moving the mouse up and down</b> moves a white bar
@@ -685,6 +690,8 @@
         muted: cfg.muted,
         start_time: startTime,
         ...scaleProps,
+        feedback_mode: () => session.feedback || feedbackMode,
+        on_feedback_change: (mode) => setSession({ feedback: mode }),
         on_chunk: (c) => {
           onChunk(c);
           if (c.samples.length) setSession({ film_t: c.samples[c.samples.length - 1][0] });

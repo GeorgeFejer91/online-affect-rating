@@ -44,12 +44,17 @@ Use `t_stim` (or `t_frame`) for alignment to the film/fMRI; drop rows with `play
 `pointer_unlock`, `play_rejected`), `resume`, `hidden`/`visible`, `blur`/`focus`, `fs_enter`/`fs_exit`,
 `lock`/`unlock`, `seek_blocked`, `video_error`, `ended`, `end`.
 
+For the 2D film, `feedback_switch` adds `mode` (`flubber` or `grid`) at the
+current `t_stim` and `t_wall`. Switching does not change the sample columns.
+
 ### Per-trial scalars
 `tag`, `mode` (video/practice), `input_mode`, `axes`, `joystick_px_full_scale`, `start_time`,
 `initial_value`, `stimulus_duration`, `n_interruptions`, `interrupted_ms`, `n_stalls`, `stalled_ms`,
 `wall_duration_ms`, `n_untrusted_events` (script-generated input events), `max_mouse_step_px` (largest raw mouse
 movement in one event), `practice_mae` (practice: 1D mean absolute error or 2D mean Euclidean distance,
 excluding 1.5 s after the start and after each step change), `practice_run`, `practice_passed`.
+The 2D film additionally records `feedback_initial` and `feedback_final`.
+`meta.feedback_mode` records the selected view at page load for 2D sessions.
 
 ## Other trials (by `task`)
 | task | fields |
